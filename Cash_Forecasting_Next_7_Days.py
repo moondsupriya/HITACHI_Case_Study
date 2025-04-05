@@ -127,7 +127,7 @@ for bank in df['Bank'].unique():
 
 forecast_df = pd.DataFrame(future_preds)
 
-#  Export or View Forecast
+#  Export or View Forecast Results 
 forecast_df.to_csv('atm_forecast_7days.csv', index=False)
 forecast_df.head(10)
 
