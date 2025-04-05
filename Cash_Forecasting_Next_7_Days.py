@@ -90,37 +90,40 @@ for bank in df['Bank'].unique():
     for atmid in df[df['Bank'] == bank]['ATMID'].unique():
         df_atm = df[(df['Bank'] == bank) & (df['ATMID'] == atmid)].copy()
         
-        for i in range(forecast_days):
-            last_row = df_atm.iloc[-1:].copy()
-            pred_date = last_row['Caldate'].values[0] + np.timedelta64(1, 'D')
-            
-            new_row = {
-                'Caldate': pred_date,
-                'Bank': bank,
-                'ATMID': atmid,
-                'DayOfWeek': pred_date.weekday(),
-                'IsWeekend': int(pred_date.weekday() in [5, 6]),
-                'DT_ratio': 0,  # Assume no downtime
-                'CountTotalTxn': last_row['CountTotalTxn'].values[0],
-                'Lag_1': last_row['Dispense'].values[0],
-                'Lag_7': df_atm.iloc[-7]['Dispense'] if len(df_atm) >= 7 else np.nan,
-                'RollingMean_7': df_atm['Dispense'].tail(7).mean(),
-                'MaxCapacity': last_row['MaxCapacity'].values[0]
-            }
-            
-            X_pred = pd.DataFrame([new_row])[features]
-            y_pred = model.predict(X_pred)[0]
-            y_pred_clipped = min(y_pred, new_row['MaxCapacity'])  # Clip to max
-            
-            new_row['Dispense'] = y_pred_clipped
-            df_atm = pd.concat([df_atm, pd.DataFrame([new_row])], ignore_index=True)
-            
-            future_preds.append({
-                'Bank': bank,
-                'ATMID': atmid,
-                'Date': pred_date,
-                'Predicted_Dispense': y_pred_clipped
-            })
+    for i in range(forecast_days):
+        last_row = df_atm.iloc[-1:].copy()
+        pred_date = last_row['Caldate'].values[0] + np.timedelta64(1, 'D')
+        
+        # Convert pred_date to pandas.Timestamp to use .weekday()
+        pred_date = pd.Timestamp(pred_date)
+        
+        new_row = {
+            'Caldate': pred_date,
+            'Bank': bank,
+            'ATMID': atmid,
+            'DayOfWeek': pred_date.weekday(),
+            'IsWeekend': int(pred_date.weekday() in [5, 6]),
+            'DT_ratio': 0,  # Assume no downtime
+            'CountTotalTxn': last_row['CountTotalTxn'].values[0],
+            'Lag_1': last_row['Dispense'].values[0],
+            'Lag_7': df_atm.iloc[-7]['Dispense'] if len(df_atm) >= 7 else np.nan,
+            'RollingMean_7': df_atm['Dispense'].tail(7).mean(),
+            'MaxCapacity': last_row['MaxCapacity'].values[0]
+        }
+        
+        X_pred = pd.DataFrame([new_row])[features]
+        y_pred = model.predict(X_pred)[0]
+        y_pred_clipped = min(y_pred, new_row['MaxCapacity'])  # Clip to max
+        
+        new_row['Dispense'] = y_pred_clipped
+        df_atm = pd.concat([df_atm, pd.DataFrame([new_row])], ignore_index=True)
+        
+        future_preds.append({
+            'Bank': bank,
+            'ATMID': atmid,
+            'Date': pred_date,
+            'Predicted_Dispense': y_pred_clipped
+        })
 
 forecast_df = pd.DataFrame(future_preds)
 
